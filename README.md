@@ -1,7 +1,7 @@
 # BreakFAST - Kerberos FAST Armoring Abuse 
 
-> [!ZAP]
-> TLDR: Use this as `GetTGT.py` or `GetST.py` in Kerberos Armoring hardened domains.
+> [!NOTE]
+> **TLDR -** Use this as `GetTGT.py` or `GetST.py` in Kerberos Armoring hardened domains.
 
 Proof of concept for abusing Kerberos Armoring, a.k.a FAST (Flexible Authentication Secure Tunneling) Armoring (MS-KILE/RFC-6113). This can be used in post-ex lateral movement in environments where Kerberos FAST armoring is enabled and preventing you from using your favorite tools such as `GetTGT.py`, `psexec.py` or `evil-winrm`. See below for usage and further details on *why* and *how*. 
 
