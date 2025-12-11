@@ -221,7 +221,7 @@ Impacket v0.14.0.dev0+20251204.163933.2347bd3f - Copyright Fortra, LLC and its a
 Kerberos SessionError: KDC_ERR_POLICY(KDC policy rejects request) #fufufufufufufufu
 ```
 
-> [!NOTE] 
+> [!WARNING] 
 > It should be noted that FAST armoring actually **does not prevent** any of the aformentionned attacks **if the attacker has access to the local system**. 
 >
 > Basically, `Rubeus` commands that use `lsass` (e.g., `tgtdeleg, kerberoast`) will work with armoring, but non-lsass commands such as `kerberoast /ticket:<blah>`, `asktgt`, `asktgs`, `asreproast`, `kerberoast /tgtdeleg <or /rc4opsec>` will fail and receive a `KDC_ERR_POLICY` response (see [this blog](https://www.trustedsec.com/blog/i-wanna-go-fast-really-fast-like-kerberos-fast)) 
