@@ -5,7 +5,7 @@
 
 Proof of concept for abusing Kerberos Armoring (MS-KILE), a.k.a FAST (Flexible Authentication Secure Tunneling, RFC-6113). `BreakFAST` can be used in post-ex lateral movement in environments where Kerberos armoring is enabled and preventing you from using your favorite tools such as `GetTGT.py`, `psexec.py` or `evil-winrm`. 
 
-<img src="img/knight-red.jpg" style="width:100%; height:auto;">
+<img src="img/banner.png" style="width:100%; height:auto;">
 
 ## Harden domain use case
 
@@ -348,6 +348,10 @@ Obviously this is a PoC, so the code is super minimalist. PRs are welcome to add
 ~~For now the tool emits a `TGS-REQ` for CIFS\host, but it's hardcoded. We can add an option to query any desired SPN. Basically turnning the tool into `GetFASTTGT.py` and `GetFASTSt.py` alike.~~ **(DONE)**
 
 We should also investigate how this can be extended to `anonymous PKINIT` (which is the other type of armor key generation mechanism described in the RFC (see section 5.4.1.1)) and eventually see how this can be combined with delegation related vectors to trigger FAST AP-REQS relay-style... TBC :)
+
+## Conclusions 
+
+<img src="img/knight-red.jpg" style="width:100%; height:auto;">
 
 ## References
 
