@@ -24,13 +24,13 @@ As detailed in [this blog](https://www.trustedsec.com/blog/i-wanna-go-fast-reall
 `BreakFAST.py` can either be used as substitution to impacket's `GetTGT.py`:
 
 ```
-python3 ./BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] identity
+python3 ./BreakFAST.py [-etype <etype>] -ekey <ekey> -machine <machine> [-outfile <.ccache>] identity
 ```
 
 or as a substitute to impacket's `GetST.py`: 
 
 ```
-python3 ./BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] -spn <SPN> identity
+python3 ./BreakFAST.py [-etype <etype>] -ekey <ekey> -machine <machine> [-outfile <.ccache>] -spn <SPN> identity
 ```
 
 The former will give you a `TGT`, the second a `ST` for the target principal - which implies that you get a `TGT` first. If you do not pass `-spn <SPN>` the default behaviour is to request only a `TGT`.
@@ -74,10 +74,41 @@ SID               : S-1-5-20
            ...
 ```
 
-In the above example, the string `7e1...0c9` corresponds to the long-term `aes256-cts-hmac-sha1-96` key, you might also find `aes128-cts-hmac-sha1-96`, `des-cbc-md4` and other formats. The machine account for which you extract the key will be used to build the FAST armor. 
+In the above example, the string `7e1...0c9` corresponds to the long-term `aes256-cts-hmac-sha1-96` key, you might also find `aes128-cts-hmac-sha1-96`, `des-cbc-md4` and other formats. 
+
+> [!WARNING]
+> In some `mimikatz` implementations (ex. Release `2.2.0 20220919`) all keys dumped with `sekurlsa::ekeys` will appear with `etype` set to `des-cbc-md4`. Also, note that you will not be able to dump `ekeys` locally if the user is part of `protected users` (see the [table here](https://github.com/swisskyrepo/InternalAllTheThings/blob/main/docs/cheatsheets/mimikatz-cheatsheet.md))
+
+The machine account for which you extract the key will be used to build the FAST armor. The following formats are supported as they're part of legacy encryption `etype`, defaults, or `futur etypes`. 
+
+```sh
+etypes = {
+    'des-cbc-crc': 1, 
+    'des-cbc-md4': 2, 
+    'des-cbc-md5': 3,
+    'des3-cbc-md5': 5,
+    'des3-cbc-sha1': 7,
+    'dsaWithSHA1-CmsOID': 9,
+    'md5WithRSAEncryption-CmsOID': 10,
+    'sha1WithRSAEncryption-CmsOID': 11,
+    'rc2CBC-EnvOID': 12,
+    'rsaEncryption-EnvOID': 13,
+    'rsaES-OAEP-ENV-OID': 14,
+    'des-ede3-cbc-Env-OID': 15,
+    'des3-cbc-sha1-kd': 16,
+    'aes128-cts-hmac-sha1-96': 17, 
+    'aes256-cts-hmac-sha1-96': 18,
+    'aes128-cts-hmac-sha256-128': 19, 
+    'aes256-cts-hmac-sha384-192': 20,
+    'rc4-hmac': 23,
+    'rc4-hmac-exp': 24,
+    'camellia128-cts-cmac': 25,
+    'camellia256-cts-cmac': 26
+}
+```
 
 > [!NOTE]
-> This tool currently only supports `aes256-cts-hmac-sha1-96` but other formats will be added. While the RFC discusses `AES128, AES256, DES, 3DES` and `RC4-HMAC` (See [RFC 6113 Appendix A.](https://www.rfc-editor.org/rfc/rfc6113.txt)), MS-KILE defaults to `AES256`.
+> While the RFC discusses `AES128, AES256, DES, 3DES` and `RC4-HMAC` (See [RFC 6113 Appendix A.](https://www.rfc-editor.org/rfc/rfc6113.txt)), MS-KILE defaults to `AES256`. If you don't know what to use, use the default `-etype=18` 
 
 #### Dependencies
 
@@ -118,17 +149,17 @@ Now that you've installed all the dependencies, prepared the long-term key and c
 
 ```sh
 # Syntax
-python3 ./BreakFAST.py -key <key> -machine <machine> [-outfile <.ccache>] [-spn <SPN>] identity
+python3 ./BreakFAST.py [-etype <etype>] -ekey <ekey> -machine <machine> [-outfile <.ccache>] [-spn <SPN>] identity
 
 # Ex. Get a ST for cifs/hostname
-python3 ./BreakFAST.py -key 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
+python3 ./BreakFAST.py -etype 18 -ekey 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
                        -machine WIN-D7FNC0765NG$ \
                        -spn 'cifs@WIN-D7FNC0765NG.ocean.net' \
                        -outfile ST.ccache \
                        OCEAN.NET/Administrateur:'aaaa1234!' \
 
 # Ex. Get a TGT for Administrateur
-python3 ./BreakFAST.py -key 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
+python3 ./BreakFAST.py -etype 18 -ekey 7e1cf276579d969397ca3f2a6b0fa990c1450329d12a52331d6cdf76d35820c9 \
                        -machine WIN-D7FNC0765NG$ \
                        -outfile TGT.ccache \
                        OCEAN.NET/Administrateur:'aaaa1234!' \
@@ -138,12 +169,11 @@ In a nutshell, the above command will emit a `FAST AS-REQ` using the AES Key (si
 
 ```
 ------------------------------
-[*] Received FAST TGT
-[*] Saved FAST TGT to ST.ccache
-[*] Received FAST ST
-[*] Saved FAST ST for cifs@WIN-D7FNC0765NG.ocean.net to ST.ccache
-------------------------------
-[*] Use with: 	export KRB5CCNAME=ST.ccache
+[*] FAST AS-REQ sent...
+[+] Saved TGT to BreakFAST.ccache
+[*] FAST TSG-REQ sent...
+[+] Saved FAST ST for cifs@WIN-D7FNC0765NG.ocean.net to BreakFAST.ccache
+[*] Use with: export KRB5CCNAME=BreakFAST.ccache
 ------------------------------
 ```
 
@@ -211,6 +241,18 @@ The tool will emit two or three distinct requests depending on wether you use `-
 
 *Fig. FAST TGS-REQ/REP*
 <img src="img/ws-st.png" style="width:100%; height:auto;">
+
+The following events will be generated: 
+
+- **EVENT 4768(S, F)**: `A Kerberos authentication ticket (TGT) was requested`. The encrypted-challenge type will be `138: PA-ENCRYPTED-CHALLENGE`, once for the armor generation and once for identity targeted (see Fig. above)
+
+- **EVENT 4769(S, F)**: `A Kerberos service ticket was requested`. 
+
+In case of failed pre-auth (for machine account or for identity) : 
+
+- **EVENT 4771(F)**: `Kerberos pre-authentication failed`. The encrypted-challenge type will be `138: PA-ENCRYPTED-CHALLENGE`, once for the armor generation and once for identity targeted (see Fig. above)
+
+
 
 ## APPENDIX A. How does FAST armoring actually work ?
 
