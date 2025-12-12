@@ -153,7 +153,7 @@ def GetFASTArmor(machine, realm, username, passw, keytab, outfile):
     
     krb5.cc_initialize(ctx, armour_cc, armour_princ)
     krb5.cc_store_cred(ctx, armour_cc, armour_cred)
-    print(f"[+] Received Armored Ticket for {machine}")
+    print(f"[+] Received Armored Ticket for {machine}\n")
 
     s = username+"@"+realm.upper()
     princ = krb5.parse_name_flags(ctx, s.encode('utf-8'))
@@ -169,7 +169,7 @@ def GetFASTArmor(machine, realm, username, passw, keytab, outfile):
     krb5.cc_initialize(ctx, tgt, princ)
     krb5.cc_store_cred(ctx, tgt, cred)
     
-    print(f"[+] Saved TGT for {s} to {outfile}")
+    print(f"[+] Saved TGT for {s} to {outfile}\n")
     return tgt
 
 
@@ -196,10 +196,10 @@ def GetFASTSt(realm, username, tgt, machine, spn, outfile):
         name=gssapi.Name(spn, name_type=gssapi.NameType.hostbased_service),
         mech=kerberos,
     )
-    print(f"[*] FAST TSG-REQ sent...")
+    print(f"[*] Sending FAST TGS-REQ for {spn}")
     
     token = cifs_ctx.step()
-    print(f"[+] Saved FAST ST for {spn} to {outfile}")
+    print(f"[+] Saved FAST ST for {spn} to {outfile}\n")
 
 
 def main():

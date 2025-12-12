@@ -169,10 +169,15 @@ In a nutshell, the above command will emit a `FAST AS-REQ` using the AES Key (si
 
 ```
 ------------------------------
-[*] FAST AS-REQ sent...
-[+] Saved TGT to BreakFAST.ccache
-[*] FAST TSG-REQ sent...
+[*] Sending FAST AS-REQ for WIN-D7FNC0765NG$
+[+] Received Armored Ticket for WIN-D7FNC0765NG$
+
+[*] Sending FAST AS-REQ for Administrateur@OCEAN.NET
+[+] Saved TGT for Administrateur@OCEAN.NET to BreakFAST.ccache
+
+[*] Sending FAST TGS-REQ for cifs@WIN-D7FNC0765NG.ocean.net
 [+] Saved FAST ST for cifs@WIN-D7FNC0765NG.ocean.net to BreakFAST.ccache
+
 [*] Use with: export KRB5CCNAME=BreakFAST.ccache
 ------------------------------
 ```
