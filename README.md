@@ -258,92 +258,46 @@ In case of failed pre-auth (for machine account or for identity) :
 
 Ok nerd. While there has already been great publications on the matter, I found actually quit few details on how this is implemented in MS-KILE (suprised ?). The main ressources to understand the cryptographic approach is here either [RFC 6113](https://www.rfc-editor.org/rfc/rfc6113.txt) or [this blog](https://www.trustedsec.com/blog/i-wanna-go-fast-really-fast-like-kerberos-fast). Based on these, we can sum-up as follows: 
 
-#### 1. FAST AS-REQ
+#### 1. Request an armored ticket for machine account 
 
-```
-Client -> DC
-┌─────────────────────────────────────────┐
-│         Kerberos AS-REQ                 │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST (Encrypted with Armor Key):  │ 
-│   ├─ PA-ENC-TIMESTAMP                   │
-│   │  (User's encrypted timestamp)       │
-│   ├─ PA-REQ-ENC-PA-REP                  │
-│   │  (Request encrypted reply)          │
-│   └─ KRB-FAST-REQ                       │
-│      └─ Fast-Options                    │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST-ARMOR (Armor Ticket):        │
-│   └─ Armor TGT (from machine account)   │
-└─────────────────────────────────────────┘
-```
+<img src="img/ASREQ1.png" style="width:100%; height:auto;">
+
+> The user account is used to request an armored ticket, this armored ticket is a TGT for the machine account
+
+#### 2. Receive armored ticket
+
+<img src="img/ASREP1.png" style="width:100%; height:auto;">
+
+> KDC responds with a DER encoded AP-REQ for the machine account to krbtgt (the armored ticket), encrypted with armor key. This key is derived from the machine account key and random data on KDC using `KRB-FX-CF2()` pseudo-random function (see RFC)
+
+
+#### 1. FAST AS-REQ for identity
+
+<img src="img/ASREQ2.png" style="width:100%; height:auto;">
 
 > The user's pre-authentication data (PA-ENC-TIMESTAMP) is now encrypted within the FAST armor, *making it resistant to offline attacks*.
 
-#### 2. FAST AS-REP
+#### 2. FAST AS-REP for identity
 
-```
-DC -> Client
-┌─────────────────────────────────────────┐
-│         Kerberos AS-REP                 │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST (Encrypted with Armor Key):  │
-│   └─ KRB-FAST-REP                       │
-│      ├─ Strengthen-Key                  │
-│      │  (Additional key material)       │
-│      └─ Encrypted Part                  │
-│         └─ User's TGT + Session Key     │
-├─────────────────────────────────────────┤
-│ Ticket (TGT) - Encrypted with DC key    │
-└─────────────────────────────────────────┘
-```
+<img src="img/ASREP2.png" style="width:100%; height:auto;">
 
 > The session key and `TGT` information are encrypted within the FAST armor before being sent to the client.
 
-#### 3. FAST TGS-REQ 
+#### 3. FAST TGS-REQ for SPN
 
-```
-Client -> DC
-┌─────────────────────────────────────────┐
-│         Kerberos TGS-REQ                │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST (Encrypted with Armor Key):  │
-│   └─ KRB-FAST-REQ                       │
-│      ├─ Fast-Options                    │
-│      ├─ Authenticator                   │
-│      └─ Service Ticket Request          │
-│         (e.g., CIFS/hostname)           │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST-ARMOR (Armor Ticket):        │
-│   └─ User's TGT (from AS-REP)           │
-└─────────────────────────────────────────┘
-```
+<img src="img/TGSREQ1.png" style="width:100%; height:auto;">
 
 > The authenticator and service ticket request are encrypted within the FAST tunnel.
 
 #### 4. FAST TGS-REP
 
-```
-DC -> Client
-┌─────────────────────────────────────────┐
-│         Kerberos TGS-REP                │
-├─────────────────────────────────────────┤
-│ PA-FX-FAST (Encrypted with Armor Key):  │
-│   └─ KRB-FAST-REP                       │
-│      ├─ Strengthen-Key                  │
-│      └─ Encrypted Part                  │
-│         └─ Service Ticket + Session Key │
-├─────────────────────────────────────────┤
-│ Service Ticket - Encrypted with service │
-│ account key                             │
-└─────────────────────────────────────────┘
-```
+<img src="img/TGSREP1.png" style="width:100%; height:auto;">
 
 > The service session key is encrypted within the FAST armor.
 
 ## Futur works
 
-Obviously this is a PoC, so the code is super minimalist. PRs are welcome to add other encryption algorithms and make a nice little package that can be used *inline* with your favorite `impacket` tools. Otherwise I think it's useful *as-is* to generate a `.ccache` to then use with `-k -no-pass`. This could also be directly added to impacket utils.
+Obviously this is a PoC, so the code is super minimalist. PRs are welcome to ~~add other encryption algorithms and~~ make a nice little package that can be used *inline* with your favorite `impacket` tools. Otherwise I think it's useful *as-is* to generate a `.ccache` to then use with `-k -no-pass`. This could also be directly added to impacket utils.
 
 ~~For now the tool emits a `TGS-REQ` for CIFS\host, but it's hardcoded. We can add an option to query any desired SPN. Basically turnning the tool into `GetFASTTGT.py` and `GetFASTSt.py` alike.~~ **(DONE)**
 

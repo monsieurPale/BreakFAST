@@ -138,7 +138,7 @@ def ConvertKeyToKeyTab(machine, alg, key, realm):
 
     return fpath
 
-def GetFASTArmor(realm, username, passw, keytab, outfile):
+def GetFASTArmor(machine, realm, username, passw, keytab, outfile):
 
     ctx = krb5.init_context()
     
@@ -146,13 +146,15 @@ def GetFASTArmor(realm, username, passw, keytab, outfile):
     armour_kt_entry = list(armour_kt)[0]
     armour_princ = copy.copy(armour_kt_entry.principal)
     
+    print(f"[*] Sending FAST AS-REQ for {machine}")
     init_opt = krb5.get_init_creds_opt_alloc(ctx)
     armour_cred = krb5.get_init_creds_keytab(ctx, armour_princ, init_opt, keytab=armour_kt)
     armour_cc = krb5.cc_new_unique(ctx, b"MEMORY")
     
     krb5.cc_initialize(ctx, armour_cc, armour_princ)
     krb5.cc_store_cred(ctx, armour_cc, armour_cred)
-    
+    print(f"[+] Received Armored Ticket for {machine}")
+
     s = username+"@"+realm.upper()
     princ = krb5.parse_name_flags(ctx, s.encode('utf-8'))
     init_opt = krb5.get_init_creds_opt_alloc(ctx)
@@ -162,14 +164,12 @@ def GetFASTArmor(realm, username, passw, keytab, outfile):
     krb5.get_init_creds_opt_set_fast_ccache(ctx, init_opt, armour_cc)
     cred = krb5.get_init_creds_password(ctx, princ, init_opt, password=passw.encode('utf-8'))
     
-    print('\n'+"---"*10)
-    print(f"[*] FAST AS-REQ sent...")
-    
+    print(f"[*] Sending FAST AS-REQ for {s}")    
     tgt = krb5.cc_resolve(ctx, f"FILE:{outfile}".encode())
     krb5.cc_initialize(ctx, tgt, princ)
     krb5.cc_store_cred(ctx, tgt, cred)
     
-    print(f"[+] Saved TGT to {outfile}")
+    print(f"[+] Saved TGT for {s} to {outfile}")
     return tgt
 
 
@@ -244,7 +244,8 @@ def main():
     keytab = ConvertKeyToKeyTab(machine, alg, key, realm)
     
     try: 
-        tgt = GetFASTArmor(realm, username, password, keytab, outfile)
+        print('\n'+"---"*10)
+        tgt = GetFASTArmor(machine, realm, username, password, keytab, outfile)
 
         if args.spn is not None:
             spn = args.spn
